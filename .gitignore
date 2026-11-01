@@ -1,0 +1,4 @@
+# секреты бота
+.env
+quest-bot/.env
+__pycache__/

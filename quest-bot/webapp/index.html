@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Брони квестов</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --bg2: var(--tg-theme-secondary-bg-color, #f2f2f7);
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #8e8e93);
+    --link: var(--tg-theme-link-color, #2481cc);
+    --accent: var(--tg-theme-button-color, #2481cc);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --danger: var(--tg-theme-destructive-text-color, #e53935);
+    --section: var(--tg-theme-section-bg-color, var(--bg));
+    --green: #2e9e5b;
+    --orange: #e08a00;
+    --gray: #8e8e93;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg2);
+    color: var(--text);
+    font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .hidden { display: none !important; }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg2);
+    padding: 12px 16px 8px;
+  }
+  .search {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 0;
+    background: var(--section); color: var(--text); font: inherit; outline: none;
+  }
+  .search::placeholder { color: var(--hint); }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .tab {
+    padding: 7px 2px; border-radius: 999px; white-space: nowrap;
+    background: var(--section); color: var(--text); font-size: 13px;
+  }
+  .tab.active { background: var(--accent); color: var(--accent-text); }
+
+  .summary { display: flex; gap: 8px; padding: 4px 16px 0; }
+  .stat {
+    flex: 1; background: var(--section); border-radius: var(--radius); padding: 10px 12px;
+  }
+  .stat b { display: block; font-size: 18px; }
+  .stat span { color: var(--hint); font-size: 12px; }
+
+  main { padding: 4px 16px 110px; }
+  .day { margin-top: 18px; }
+  .day-title {
+    color: var(--hint); font-size: 13px; text-transform: uppercase; letter-spacing: .03em;
+    margin: 0 4px 6px; display: flex; justify-content: space-between;
+  }
+  .day-title.today { color: var(--accent); font-weight: 600; }
+  .card {
+    display: flex; gap: 12px; width: 100%; text-align: left;
+    background: var(--section); border-radius: var(--radius);
+    padding: 12px; margin-bottom: 8px;
+  }
+  .card:active { opacity: .7; }
+  .card .time { font-weight: 700; font-size: 17px; min-width: 48px; }
+  .card .body { flex: 1; min-width: 0; }
+  .card .quest { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .meta { color: var(--hint); font-size: 13px; margin-top: 2px; }
+  .card .note { font-size: 13px; margin-top: 4px; white-space: pre-wrap; word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .right { text-align: right; flex: 0 0 auto; }
+  .card .price { font-weight: 600; }
+  .card.cancelled { opacity: .55; }
+  .card.cancelled .quest { text-decoration: line-through; }
+
+  .chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-top: 4px; color: #fff; }
+  .chip.pending { background: var(--orange); }
+  .chip.confirmed { background: var(--accent); color: var(--accent-text); }
+  .chip.done { background: var(--green); }
+  .chip.cancelled { background: var(--gray); }
+
+  .empty { text-align: center; color: var(--hint); padding: 60px 20px; }
+  .empty .big { font-size: 44px; }
+
+  .fab {
+    position: fixed; right: 18px; bottom: 22px; z-index: 6;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-text);
+    font-size: 30px; line-height: 58px; text-align: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22);
+  }
+
+  /* form */
+  #form { padding: 12px 16px 120px; }
+  .group { background: var(--section); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
+  .row { display: flex; align-items: center; padding: 0 12px; min-height: 46px; gap: 10px; }
+  .row + .row { border-top: 1px solid rgba(128,128,128,.18); }
+  .row label { flex: 0 0 108px; color: var(--hint); font-size: 14px; }
+  .row input, .row select, .row textarea {
+    flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text);
+    font: inherit; padding: 12px 0; text-align: right;
+  }
+  .row textarea { text-align: left; resize: vertical; min-height: 90px; }
+  .row.col { flex-direction: column; align-items: stretch; }
+  .row.col label { padding-top: 10px; }
+  .row select { appearance: none; -webkit-appearance: none; direction: rtl; }
+  .row select option { direction: ltr; }
+  .row a { color: var(--link); text-decoration: none; font-size: 20px; }
+  .section-title { color: var(--hint); font-size: 13px; text-transform: uppercase; margin: 0 4px 6px; }
+  .statuses { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .statuses button {
+    background: var(--section); border-radius: 12px; padding: 11px; font-size: 14px; border: 2px solid transparent;
+  }
+  .statuses button.active { border-color: var(--accent); font-weight: 600; }
+  .btn {
+    display: block; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; text-align: center;
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-text); }
+  .btn.danger { background: var(--section); color: var(--danger); margin-top: 10px; }
+  .debt { color: var(--danger); }
+  #fallbackSave { margin-top: 4px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+    background: rgba(0,0,0,.8); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 14px;
+    z-index: 20; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="listView">
+  <header>
+    <input id="search" class="search" type="search" placeholder="Поиск: квест, имя, телефон, заметка">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="upcoming">Скоро</button>
+      <button class="tab" data-tab="today">Сегодня</button>
+      <button class="tab" data-tab="past">Прошедшие</button>
+      <button class="tab" data-tab="all">Все</button>
+    </div>
+  </header>
+  <div class="summary" id="summary"></div>
+  <main id="list"></main>
+  <button class="fab" id="addBtn" aria-label="Новая бронь">+</button>
+</div>
+
+<div id="formView" class="hidden">
+  <form id="form" autocomplete="off" onsubmit="return false">
+    <div class="section-title" id="formTitle">Новая бронь</div>
+    <div class="group">
+      <div class="row"><label for="f_quest">Квест</label><input id="f_quest" list="questList" placeholder="Название" maxlength="100" required></div>
+      <div class="row"><label for="f_date">Дата</label><input id="f_date" type="date" required></div>
+      <div class="row"><label for="f_time">Время</label><input id="f_time" type="time"></div>
+      <div class="row"><label for="f_players">Игроков</label><input id="f_players" type="number" inputmode="numeric" min="1" max="99" placeholder="—"></div>
+    </div>
+    <datalist id="questList"></datalist>
+
+    <div class="section-title">Клиент</div>
+    <div class="group">
+      <div class="row"><label for="f_name">Имя</label><input id="f_name" placeholder="—" maxlength="80"></div>
+      <div class="row"><label for="f_phone">Телефон</label><input id="f_phone" type="tel" inputmode="tel" placeholder="—" maxlength="30"><a id="callLink" class="hidden" href="#">📞</a></div>
+    </div>
+
+    <div class="section-title">Деньги</div>
+    <div class="group">
+      <div class="row"><label for="f_price">Сумма, ₽</label><input id="f_price" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      <div class="row"><label for="f_prepaid">Предоплата, ₽</label><input id="f_prepaid" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      <div class="row hidden" id="debtRow"><label>Осталось</label><input id="f_debt" readonly class="debt"></div>
+    </div>
+
+    <div class="section-title">Статус</div>
+    <div class="statuses" id="statuses">
+      <button type="button" data-status="pending">🕓 Ожидает</button>
+      <button type="button" data-status="confirmed">✅ Подтверждена</button>
+      <button type="button" data-status="done">🏁 Сыграна</button>
+      <button type="button" data-status="cancelled">✖️ Отменена</button>
+    </div>
+
+    <div class="section-title">Заметка</div>
+    <div class="group">
+      <div class="row col"><textarea id="f_note" maxlength="1500" placeholder="Пожелания, день рождения, промокод…"></textarea></div>
+    </div>
+
+    <button type="button" class="btn primary hidden" id="fallbackSave">Сохранить</button>
+    <button type="button" class="btn hidden" id="fallbackBack">← Назад</button>
+    <button type="button" class="btn danger hidden" id="deleteBtn">Удалить бронь</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const tg = window.Telegram && window.Telegram.WebApp;
+  const inTelegram = !!(tg && tg.initData);
+  const hasCloud = inTelegram && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') && tg.CloudStorage;
+
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('secondary_bg_color'); tg.setBackgroundColor('secondary_bg_color'); } catch (e) {}
+  }
+
+  // ---------- storage: Telegram CloudStorage (синхронизируется между устройствами) или localStorage ----------
+  const PREFIX = 'b_';
+  const cloud = {
+    call(method, ...args) {
+      return new Promise((resolve, reject) => {
+        tg.CloudStorage[method](...args, (err, res) => err ? reject(err) : resolve(res));
+      });
+    },
+    async all() {
+      const keys = (await this.call('getKeys')).filter(k => k.startsWith(PREFIX));
+      const out = [];
+      for (let i = 0; i < keys.length; i += 50) {
+        const chunk = await this.call('getItems', keys.slice(i, i + 50));
+        for (const k in chunk) {
+          try { if (chunk[k]) out.push(JSON.parse(chunk[k])); } catch (e) {}
+        }
+      }
+      return out;
+    },
+    put(b) { return this.call('setItem', PREFIX + b.id, JSON.stringify(b)); },
+    del(id) { return this.call('removeItem', PREFIX + id); }
+  };
+  const local = {
+    KEY: 'quest_bookings_v1',
+    read() { try { return JSON.parse(localStorage.getItem(this.KEY)) || {}; } catch (e) { return {}; } },
+    write(m) { try { localStorage.setItem(this.KEY, JSON.stringify(m)); } catch (e) {} },
+    async all() { return Object.values(this.read()); },
+    async put(b) { const m = this.read(); m[b.id] = b; this.write(m); },
+    async del(id) { const m = this.read(); delete m[id]; this.write(m); }
+  };
+  const store = hasCloud ? cloud : local;
+
+  // ---------- helpers ----------
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const isoDate = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const todayStr = () => isoDate(new Date());
+  const money = n => (Number(n) || 0).toLocaleString('ru-RU') + ' ₽';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const STATUS = {
+    pending: 'Ожидает', confirmed: 'Подтверждена', done: 'Сыграна', cancelled: 'Отменена'
+  };
+  const plural = (n, a, b, c) => {
+    const m10 = n % 10, m100 = n % 100;
+    return n + ' ' + (m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c);
+  };
+  const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  function dayLabel(ds) {
+    const [y, m, d] = ds.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.round((date - t) / 86400000);
+    let rel = diff === 0 ? 'Сегодня' : diff === 1 ? 'Завтра' : diff === -1 ? 'Вчера' : '';
+    let s = d + ' ' + MONTHS[m - 1] + (y !== t.getFullYear() ? ' ' + y : '') + ', ' + WD[date.getDay()];
+    return rel ? rel + ' · ' + s : s;
+  }
+  function haptic(type) {
+    try { tg && tg.HapticFeedback && (type === 'select' ? tg.HapticFeedback.selectionChanged() : tg.HapticFeedback.notificationOccurred(type)); } catch (e) {}
+  }
+  function toast(text) {
+    const el = document.createElement('div');
+    el.className = 'toast'; el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1800);
+  }
+  function confirmBox(text) {
+    return new Promise(res => {
+      if (tg && tg.showConfirm && inTelegram) tg.showConfirm(text, ok => res(ok));
+      else res(window.confirm(text));
+    });
+  }
+
+  // ---------- state ----------
+  let bookings = [];
+  let tab = 'upcoming';
+  let query = '';
+  let editing = null;
+  let status = 'confirmed';
+
+  function sortKey(b) { return (b.date || '') + ' ' + (b.time || '99:99'); }
+
+  function filtered() {
+    const today = todayStr();
+    let list = bookings.slice();
+    if (tab === 'today') list = list.filter(b => b.date === today);
+    else if (tab === 'upcoming') list = list.filter(b => b.date >= today && b.status !== 'done');
+    else if (tab === 'past') list = list.filter(b => b.date < today || b.status === 'done');
+    if (query) {
+      const q = query.toLowerCase();
+      list = list.filter(b => [b.quest, b.name, b.phone, b.note].some(v => v && String(v).toLowerCase().includes(q)));
+    }
+    list.sort((a, b) => sortKey(a) < sortKey(b) ? -1 : 1);
+    if (tab === 'past' || tab === 'all') list.reverse();
+    return list;
+  }
+
+  function render() {
+    const list = filtered();
+    const active = list.filter(b => b.status !== 'cancelled');
+    const total = active.reduce((s, b) => s + (Number(b.price) || 0), 0);
+    const players = active.reduce((s, b) => s + (Number(b.players) || 0), 0);
+    $('summary').innerHTML =
+      '<div class="stat"><b>' + active.length + '</b><span>' + plural(active.length, 'игра', 'игры', 'игр').replace(/^\d+ /, '') + '</span></div>' +
+      '<div class="stat"><b>' + players + '</b><span>' + plural(players, 'игрок', 'игрока', 'игроков').replace(/^\d+ /, '') + '</span></div>' +
+      '<div class="stat"><b>' + money(total) + '</b><span>сумма</span></div>';
+
+    if (!list.length) {
+      $('list').innerHTML = '<div class="empty"><div class="big">🗝️</div>' +
+        (bookings.length ? 'Ничего не найдено' : 'Пока нет броней.<br>Нажми «+», чтобы добавить первую.') + '</div>';
+      return;
+    }
+    const today = todayStr();
+    let html = '', curDay = null;
+    for (const b of list) {
+      if (b.date !== curDay) {
+        if (curDay !== null) html += '</div>';
+        curDay = b.date;
+        const n = list.filter(x => x.date === curDay && x.status !== 'cancelled').length;
+        html += '<div class="day"><div class="day-title' + (curDay === today ? ' today' : '') + '"><span>' +
+          esc(dayLabel(curDay)) + '</span><span>' + plural(n, 'игра', 'игры', 'игр') + '</span></div>';
+      }
+      const left = (Number(b.price) || 0) - (Number(b.prepaid) || 0);
+      const meta = [b.name, b.players ? '👥 ' + b.players : '', b.phone].filter(Boolean).map(esc).join(' · ');
+      html += '<button class="card ' + esc(b.status) + '" data-id="' + esc(b.id) + '">' +
+        '<div class="time">' + esc(b.time || '—') + '</div>' +
+        '<div class="body"><div class="quest">' + esc(b.quest) + '</div>' +
+        (meta ? '<div class="meta">' + meta + '</div>' : '') +
+        (b.note ? '<div class="note">' + esc(b.note) + '</div>' : '') + '</div>' +
+        '<div class="right">' + (b.price ? '<div class="price">' + money(b.price) + '</div>' : '') +
+        (b.price && left > 0 && b.status !== 'cancelled' && b.status !== 'done' ? '<div class="meta">долг ' + money(left) + '</div>' : '') +
+        '<span class="chip ' + esc(b.status) + '">' + STATUS[b.status] + '</span></div>' +
+        '</button>';
+    }
+    html += '</div>';
+    $('list').innerHTML = html;
+  }
+
+  // ---------- list events ----------
+  $('tabs').addEventListener('click', e => {
+    const t = e.target.closest('.tab'); if (!t) return;
+    tab = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    haptic('select'); render();
+  });
+  $('search').addEventListener('input', e => { query = e.target.value.trim(); render(); });
+  $('list').addEventListener('click', e => {
+    const c = e.target.closest('.card'); if (!c) return;
+    openForm(bookings.find(b => b.id === c.dataset.id));
+  });
+  $('addBtn').addEventListener('click', () => openForm(null));
+
+  // ---------- form ----------
+  const F = ['quest', 'date', 'time', 'players', 'name', 'phone', 'price', 'prepaid', 'note'];
+
+  function setStatus(s) {
+    status = s;
+    document.querySelectorAll('#statuses button').forEach(b => b.classList.toggle('active', b.dataset.status === s));
+  }
+  $('statuses').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    setStatus(b.dataset.status); haptic('select');
+  });
+
+  function updateDerived() {
+    const price = Number($('f_price').value) || 0, pre = Number($('f_prepaid').value) || 0;
+    const left = price - pre;
+    $('debtRow').classList.toggle('hidden', !(price && left > 0));
+    $('f_debt').value = money(left);
+    const phone = $('f_phone').value.replace(/[^\d+]/g, '');
+    $('callLink').classList.toggle('hidden', phone.length < 5);
+    $('callLink').href = 'tel:' + phone;
+  }
+  ['f_price', 'f_prepaid', 'f_phone'].forEach(id => $(id).addEventListener('input', updateDerived));
+
+  function openForm(b) {
+    editing = b || null;
+    $('formTitle').textContent = b ? 'Редактирование' : 'Новая бронь';
+    for (const k of F) $('f_' + k).value = b ? (b[k] == null ? '' : b[k]) : '';
+    if (!b) $('f_date').value = todayStr();
+    setStatus(b ? b.status : 'confirmed');
+    $('deleteBtn').classList.toggle('hidden', !b);
+    const quests = [...new Set(bookings.map(x => x.quest).filter(Boolean))].sort();
+    $('questList').innerHTML = quests.map(q => '<option value="' + esc(q) + '">').join('');
+    updateDerived();
+
+    $('listView').classList.add('hidden');
+    $('formView').classList.remove('hidden');
+    window.scrollTo(0, 0);
+
+    if (inTelegram) {
+      tg.BackButton.show();
+      tg.MainButton.setText(b ? 'Сохранить' : 'Добавить бронь');
+      tg.MainButton.show();
+    } else {
+      $('fallbackSave').classList.remove('hidden');
+      $('fallbackBack').classList.remove('hidden');
+    }
+    if (!b) setTimeout(() => $('f_quest').focus(), 50);
+  }
+
+  function closeForm() {
+    editing = null;
+    $('formView').classList.add('hidden');
+    $('listView').classList.remove('hidden');
+    if (inTelegram) { tg.BackButton.hide(); tg.MainButton.hide(); }
+    render();
+  }
+
+  let saving = false;
+  async function save() {
+    if (saving) return;
+    const quest = $('f_quest').value.trim(), date = $('f_date').value;
+    if (!quest || !date) {
+      haptic('error');
+      const msg = !quest ? 'Укажи название квеста' : 'Укажи дату';
+      inTelegram ? tg.showAlert(msg) : alert(msg);
+      return;
+    }
+    const num = id => { const v = $(id).value; return v === '' ? null : Math.max(0, Number(v)); };
+    const b = {
+      id: editing ? editing.id : newId(),
+      quest, date,
+      time: $('f_time').value || '',
+      players: num('f_players'),
+      name: $('f_name').value.trim(),
+      phone: $('f_phone').value.trim(),
+      price: num('f_price'),
+      prepaid: num('f_prepaid'),
+      note: $('f_note').value.trim(),
+      status,
+      created: editing ? editing.created : Date.now(),
+      updated: Date.now()
+    };
+    saving = true;
+    if (inTelegram) tg.MainButton.showProgress();
+    try {
+      await store.put(b);
+      const i = bookings.findIndex(x => x.id === b.id);
+      if (i >= 0) bookings[i] = b; else bookings.push(b);
+      haptic('success');
+      closeForm();
+      toast(i < 0 ? 'Бронь добавлена' : 'Сохранено');
+    } catch (err) {
+      haptic('error');
+      const msg = 'Не удалось сохранить: ' + err;
+      inTelegram ? tg.showAlert(msg) : alert(msg);
+    } finally {
+      saving = false;
+      if (inTelegram) tg.MainButton.hideProgress();
+    }
+  }
+
+  async function remove() {
+    if (!editing) return;
+    if (!(await confirmBox('Удалить бронь «' + editing.quest + '»?'))) return;
+    try {
+      await store.del(editing.id);
+      bookings = bookings.filter(x => x.id !== editing.id);
+      haptic('warning');
+      closeForm();
+      toast('Удалено');
+    } catch (err) {
+      inTelegram ? tg.showAlert('Ошибка: ' + err) : alert('Ошибка: ' + err);
+    }
+  }
+
+  $('deleteBtn').addEventListener('click', remove);
+  $('fallbackSave').addEventListener('click', save);
+  $('fallbackBack').addEventListener('click', closeForm);
+  if (inTelegram) {
+    tg.MainButton.onClick(save);
+    tg.BackButton.onClick(closeForm);
+  }
+
+  // ---------- init ----------
+  (async function init() {
+    $('list').innerHTML = '<div class="empty">Загрузка…</div>';
+    try {
+      bookings = await store.all();
+    } catch (err) {
+      bookings = [];
+      toast('Ошибка загрузки: ' + err);
+    }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
